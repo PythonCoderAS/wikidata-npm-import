@@ -1,5 +1,5 @@
 import pywikibot
-
+from collections import deque
 from src.main import NPMBot, site
 
 if __name__ == "__main__":
@@ -12,4 +12,5 @@ if __name__ == "__main__":
             item = pywikibot.ItemPage(site, bot.queue.popleft())
             bot.process(bot.run_item(item), item)
     else:
+        bot.queue = deque([bot.npm_db["vuepress"]])
         bot.run()

@@ -1,9 +1,14 @@
-from requests import Session
-from wikidata_bot_framework import site
+import re
 
-session = Session()
+from wikidata_bot_framework import site, session
+
 npm_endpoint = "https://registry.npmjs.com/{package}"
 npm_download_endpoint = "https://api.npmjs.org/downloads/point/last-week/{package}"
+valid_repo_github_regex = re.compile(r"^([a-zA-z\d\-\._]+)/([a-zA-z\d\-\._]+)$")
+valid_repo_url_regex = re.compile(r"^https?://")
+valid_repo_git_url_regex = re.compile(
+    r"^git\+(https.+)\.git$"
+)
 if site.code == "wikidata":
     npm_package_prop = "P8262"
     npm_item = "Q116058944"
@@ -16,6 +21,7 @@ if site.code == "wikidata":
     js = "Q2005"
     operating_system = "P306"
     cross_platform = "Q174666"
+    source_code_repo = "P1324"
 else:
     import wikidata_bot_framework.dataclasses
 
@@ -32,3 +38,4 @@ else:
     js = "Q227504"
     operating_system = "P97261"
     cross_platform = "Q227506"
+    source_code_repo = "P97315"

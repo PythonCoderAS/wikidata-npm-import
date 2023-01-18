@@ -3,14 +3,14 @@ from typing import Union
 
 import pywikibot
 
-# import wikidata_bot_framework
-# wikidata_bot_framework.site = pywikibot.Site("test", "wikidata")
 from wikidata_bot_framework import (
     ExtraProperty,
     ExtraReference,
     Output,
     OutputHelper,
     PropertyAdderBot,
+    get_random_hex,
+    EntityPage
 )
 
 from .constants import (
@@ -29,6 +29,10 @@ from .constants import (
     session,
     site,
     stated_in_prop,
+    valid_repo_git_url_regex,
+    valid_repo_github_regex,
+    valid_repo_url_regex,
+    source_code_repo
 )
 from .inversedict import InverseDict
 
@@ -41,7 +45,6 @@ def load_package_info():
         headers={"Accept": "application/sparql-results+json;charset=utf-8"},
     )
     r.raise_for_status()
-    # return InverseDict(dict(vuepress="Q227512"))
     return InverseDict(
         {
             item["npmName"]["value"]: item["item"]["value"].split("/")[-1]
@@ -52,15 +55,17 @@ def load_package_info():
 
 class NPMBot(PropertyAdderBot):
     def __init__(self):
+        super().__init__()
         self.npm_db = load_package_info()
         self.queue: deque[str] = deque(self.npm_db.values())
         self.no_add_cache = set()
+        self.editgroup_id = get_random_hex()
 
     def get_edit_group_id(self) -> Union[str, None]:
-        pass
+        return self.editgroup_id
 
-    def get_edit_summary(self, page: pywikibot.ItemPage) -> str:
-        if len(page.claims) == 1:
+    def get_edit_summary(self, page: EntityPage) -> str:
+        if page.getID() == -1:
             return "Creating item for missing NPM package."
         else:
             return "Adding dependency information."
@@ -80,12 +85,11 @@ class NPMBot(PropertyAdderBot):
     def make_new_item(self, package: str) -> pywikibot.ItemPage:
         item = pywikibot.ItemPage(site)
         oh = OutputHelper()
-        item.editLabels({"en": package}, summary=self.get_edit_summary(item))
+        item.labels = {"en": package}
         claim = pywikibot.Claim(site, npm_package_prop)
         claim.setTarget(package)
         oh.add_property(ExtraProperty(claim))
         self.process(oh, item)
-        print("Made item for " + package)
         return item
 
     def make_item_for_package(self, package: str) -> bool:
@@ -101,7 +105,7 @@ class NPMBot(PropertyAdderBot):
 
     def run_item(
         self,
-        item: Union[pywikibot.ItemPage, pywikibot.PropertyPage, pywikibot.LexemePage],
+        item: EntityPage,
     ) -> Output:
         oh = OutputHelper()
         package_id = self.npm_db.get_key(item.getID())
@@ -109,6 +113,22 @@ class NPMBot(PropertyAdderBot):
         r.raise_for_status()
         data = r.json()
         current_version = data["dist-tags"]["latest"]
+        if "repository" in data:
+            repo = data["repository"]
+            if isinstance(repo, dict) and "url" in repo:
+                repo = repo["url"]
+            if valid_repo_url_regex.match(repo):
+                claim = pywikibot.Claim(site, source_code_repo)
+                claim.setTarget(repo)
+                oh.add_property(self.get_extra_property(package_id, claim))
+            elif match := valid_repo_git_url_regex.match(repo):
+                claim = pywikibot.Claim(site, source_code_repo)
+                claim.setTarget(match.group(1))
+                oh.add_property(self.get_extra_property(package_id, claim))
+            elif match := valid_repo_github_regex.match(repo):
+                claim = pywikibot.Claim(site, source_code_repo)
+                claim.setTarget(f"https://github.com/{match.group(1)}/{match.group(2)}")
+                oh.add_property(self.get_extra_property(package_id, claim))
         deps = list(
             data["versions"][current_version].get("dependencies", {}).keys()
         ) + list(data["versions"][current_version].get("peerDependencies", {}).keys())
