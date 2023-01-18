@@ -1,4 +1,5 @@
 from collections import deque
+import re
 from typing import Union
 
 import pywikibot
@@ -65,14 +66,14 @@ class NPMBot(PropertyAdderBot):
         return self.editgroup_id
 
     def get_edit_summary(self, page: EntityPage) -> str:
-        if page.getID() == -1:
+        if page.getID(True) == -1:
             return "Creating item for missing NPM package."
         else:
             return "Adding dependency information."
 
     def get_reference(self, source_npm_package: str) -> ExtraReference:
         ref = ExtraReference(
-            url_match_pattern=npm_endpoint.format(package=source_npm_package)
+            url_match_pattern=re.compile(npm_endpoint.format(package=source_npm_package).replace(".", r"\."))
         )
         claim = pywikibot.Claim(site, stated_in_prop)
         claim.setTarget(pywikibot.ItemPage(site, npm_item))
@@ -85,7 +86,7 @@ class NPMBot(PropertyAdderBot):
     def make_new_item(self, package: str) -> pywikibot.ItemPage:
         item = pywikibot.ItemPage(site)
         oh = OutputHelper()
-        item.labels = {"en": package}
+        item.editLabels({"en": package}, summary=self._get_full_summary(item))
         claim = pywikibot.Claim(site, npm_package_prop)
         claim.setTarget(package)
         oh.add_property(ExtraProperty(claim))

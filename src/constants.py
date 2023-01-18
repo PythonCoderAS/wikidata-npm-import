@@ -4,7 +4,7 @@ from wikidata_bot_framework import site, session
 
 npm_endpoint = "https://registry.npmjs.com/{package}"
 npm_download_endpoint = "https://api.npmjs.org/downloads/point/last-week/{package}"
-valid_repo_github_regex = re.compile(r"^([a-zA-z\d\-\._]+)/([a-zA-z\d\-\._]+)$")
+valid_repo_github_regex = re.compile(r"^([a-zA-Z\d\-\._]+)/([a-zA-Z\d\-\._]+)$")
 valid_repo_url_regex = re.compile(r"^https?://")
 valid_repo_git_url_regex = re.compile(
     r"^git\+(https.+)\.git$"
