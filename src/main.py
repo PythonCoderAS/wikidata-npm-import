@@ -1,40 +1,27 @@
-from collections import deque
 import re
-from typing import Union
+from collections import deque
+from typing import Any, Optional, Union
 
 import pywikibot
-
 from wikidata_bot_framework import (
+    EntityPage,
     ExtraProperty,
+    ExtraQualifier,
     ExtraReference,
+    NewClaimFromQualifierContext,
     Output,
     OutputHelper,
+    ProcessReason,
     PropertyAdderBot,
+    WikidataReference,
+    add_qualifier_locally,
     get_random_hex,
-    EntityPage
-)
-
-from .constants import (
-    cross_platform,
-    dependency_prop,
-    instance_of_prop,
-    js,
-    js_package,
-    npm_download_endpoint,
-    npm_endpoint,
-    npm_item,
-    npm_package_prop,
-    operating_system,
-    programmed_in_prop,
-    reference_url_prop,
     session,
     site,
-    stated_in_prop,
-    valid_repo_git_url_regex,
-    valid_repo_github_regex,
-    valid_repo_url_regex,
-    source_code_repo
+    url_prop,
 )
+
+from .constants import *
 from .inversedict import InverseDict
 
 
@@ -67,13 +54,16 @@ class NPMBot(PropertyAdderBot):
 
     def get_edit_summary(self, page: EntityPage) -> str:
         if page.getID(True) == -1:
-            return "Creating item for missing NPM package."
+            base = "Creating item for missing NPM package."
         else:
-            return "Adding dependency information."
+            base = "Adding information from NPM."
+        return f"{base} ([[User:RPI2026F1Bot/Task4|info]])"
 
     def get_reference(self, source_npm_package: str) -> ExtraReference:
         ref = ExtraReference(
-            url_match_pattern=re.compile(npm_endpoint.format(package=source_npm_package).replace(".", r"\."))
+            url_match_pattern=re.compile(
+                npm_endpoint.format(package=source_npm_package).replace(".", r"\.")
+            )
         )
         claim = pywikibot.Claim(site, stated_in_prop)
         claim.setTarget(pywikibot.ItemPage(site, npm_item))
@@ -94,6 +84,8 @@ class NPMBot(PropertyAdderBot):
         return item
 
     def make_item_for_package(self, package: str) -> bool:
+        # Temp
+        return False
         if package in self.no_add_cache:
             return False
         r = session.get(npm_download_endpoint.format(package=package))
@@ -103,6 +95,30 @@ class NPMBot(PropertyAdderBot):
 
     def get_extra_property(self, package: str, claim: pywikibot.Claim) -> ExtraProperty:
         return ExtraProperty(claim, extra_references=[self.get_reference(package)])
+
+    def processed_hook(
+        self,
+        item: EntityPage,
+        reason: ProcessReason,
+        *,
+        claim: Optional[ExtraProperty] = None,
+        qualifier: Optional[ExtraQualifier] = None,
+        reference: Optional[ExtraReference] = None,
+        context: Optional[dict[str, Any]] = None,
+    ) -> bool:
+        if reason.new_qualifier_was_added():
+            assert claim is not None
+            assert qualifier is not None
+            if (
+                qualifier.claim.getID() == version_type
+                and claim.claim.getID() == software_version_identifier
+            ):
+                ref = pywikibot.Claim(site, based_on_heuristic)
+                ref.setTarget(pywikibot.ItemPage(site, inferred_from_version))
+                extra_ref = ExtraReference(retrieved=False)
+                extra_ref.add_claim(ref, also_match_property_values=True)
+                claim.add_reference(extra_ref)
+        return False
 
     def run_item(
         self,
@@ -114,7 +130,7 @@ class NPMBot(PropertyAdderBot):
         r.raise_for_status()
         data = r.json()
         current_version = data["dist-tags"]["latest"]
-        if "repository" in data:
+        if "repository" in data and False:  # We skip repo for now
             repo = data["repository"]
             if isinstance(repo, dict) and "url" in repo:
                 repo = repo["url"]
@@ -143,10 +159,85 @@ class NPMBot(PropertyAdderBot):
                     self.npm_db[dep] = item.getID()
                     self.queue.appendleft(item.getID())
                 else:
+                    self.no_add_cache.add(dep)
                     continue
             claim = pywikibot.Claim(site, dependency_prop)
             claim.setTarget(pywikibot.ItemPage(site, self.npm_db[dep]))
             oh.add_property(self.get_extra_property(package_id, claim))
+        version_times = data["time"]
+        del version_times["created"]
+        del version_times["modified"]
+        for version, created_at in version_times.items():
+            claim = pywikibot.Claim(site, software_version_identifier)
+            claim.setTarget(version)
+            extra_property = self.get_extra_property(package_id, claim)
+            qual = pywikibot.Claim(site, publication_date)
+            pub_time = pywikibot.WbTime.fromTimestamp(
+                pywikibot.Timestamp.strptime(created_at, "%Y-%m-%dT%H:%M:%S.%fZ"),
+                precision=pywikibot.WbTime.PRECISION["day"],
+            )
+            qual.setTarget(pub_time)
+            extra_property.add_qualifier(ExtraQualifier(qual))
+            if "alpha" in version:
+                qual = pywikibot.Claim(site, version_type)
+                qual.setTarget(pywikibot.ItemPage(site, alpha))
+                extra_property.add_qualifier(
+                    ExtraQualifier(qual, skip_if_conflicting_exists=True)
+                )
+            elif "beta" in version:
+                qual = pywikibot.Claim(site, version_type)
+                qual.setTarget(pywikibot.ItemPage(site, beta))
+                extra_property.add_qualifier(
+                    ExtraQualifier(qual, skip_if_conflicting_exists=True)
+                )
+            elif "rc" in version:
+                qual = pywikibot.Claim(site, version_type)
+                qual.setTarget(pywikibot.ItemPage(site, rc))
+                extra_property.add_qualifier(
+                    ExtraQualifier(qual, skip_if_conflicting_exists=True)
+                )
+            elif "pre" in version:
+                qual = pywikibot.Claim(site, version_type)
+                qual.setTarget(pywikibot.ItemPage(site, pre))
+                extra_property.add_qualifier(
+                    ExtraQualifier(qual, skip_if_conflicting_exists=True)
+                )
+            elif "dev" in version:
+                qual = pywikibot.Claim(site, version_type)
+                qual.setTarget(pywikibot.ItemPage(site, unstable))
+                extra_property.add_qualifier(
+                    ExtraQualifier(qual, skip_if_conflicting_exists=True)
+                )
+            else:
+                qual = pywikibot.Claim(site, version_type)
+                qual.setTarget(pywikibot.ItemPage(site, stable))
+                extra_property.add_qualifier(
+                    ExtraQualifier(qual, skip_if_conflicting_exists=True)
+                )
+            qual = pywikibot.Claim(site, distributed_by)
+            qual.setTarget(pywikibot.ItemPage(site, npmjs))
+            extra_property.add_qualifier(ExtraQualifier(qual))
+            qual = pywikibot.Claim(site, described_at_url)
+            qual.setTarget(f"https://www.npmjs.com/package/{package_id}/v/{version}")
+            extra_property.add_qualifier(ExtraQualifier(qual))
+            version_data = data["versions"].get(version, {})
+            if not version_data:
+                continue
+            dist_data = version_data.get("dist", {})
+            qual = pywikibot.Claim(site, download_link)
+            qual.setTarget(dist_data["tarball"])
+            extra_property.add_qualifier(ExtraQualifier(qual))
+            oh.add_property(extra_property)
+            if "unpackedSize" in dist_data:
+                qual = pywikibot.Claim(site, data_size)
+                qual.setTarget(
+                    pywikibot.WbQuantity(
+                        dist_data["unpackedSize"],
+                        pywikibot.ItemPage(site, byte),
+                        site=site,
+                    )
+                )
+                extra_property.add_qualifier(ExtraQualifier(qual))
 
         claim = pywikibot.Claim(site, instance_of_prop)
         claim.setTarget(pywikibot.ItemPage(site, js_package))
@@ -159,8 +250,30 @@ class NPMBot(PropertyAdderBot):
         oh.add_property(ExtraProperty(claim, skip_if_conflicting_exists=True))
         return oh
 
+    def pre_edit_process_hook(self, output: Output, item: EntityPage) -> None:
+        if software_version_identifier in item.claims:
+            item.claims[software_version_identifier].sort(
+                key=lambda claim: claim.qualifiers[publication_date][0]
+                .getTarget()
+                .toTimestamp()
+                if publication_date in claim.qualifiers
+                else pywikibot.Timestamp.min
+            )
+        return super().pre_edit_process_hook(output, item)
+
+    def process(self, output: Output, item: EntityPage) -> bool:
+        if claims := output.get(software_version_identifier, []):
+            if len(claims) > 300:
+                done = False
+                for i in range(0, len(claims), 300):
+                    output[software_version_identifier] = claims[i : i + 300]
+                    done |= super().process(output, item)
+                    item = site.get_entity_for_entity_id(item.id)
+                return done
+        return super().process(output, item)
+
     def run(self):
         while self.queue:
-            item_id = self.queue.pop()
+            item_id = self.queue.popleft()
             item = pywikibot.ItemPage(site, item_id)
             self.process(self.run_item(item), item)
