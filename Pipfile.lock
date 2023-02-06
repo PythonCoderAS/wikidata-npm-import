@@ -205,16 +205,16 @@
                 "sha256:076907bf8fd355cde77728471316625a4d2f7e713c125f51953bb5b3eecf4f72",
                 "sha256:75edcdc2f7d85b137124a6c3c9fc3933cdeaa12ecb9a6a959f22797a0feca7e1"
             ],
-            "markers": "python_version >= '3.6'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4, 3.5'",
             "version": "==1.26.14"
         },
         "wikidata-bot-framework": {
             "hashes": [
-                "sha256:6ff3af97a393edc45c548adf941454d377b69c1816d42843d9ff3c9f7c5cfe56",
-                "sha256:87dfe499c207d529c37ea644c44652be187327706bf112496eb4d2f49fd7a600"
+                "sha256:01a77bdf9fbd5483687269d914726a0a9a6980d9e08259902c3a4b53cd0801ad",
+                "sha256:766d40a17a88a380f9a50bc4d7a89cf6895b99254721667e2e113f0dea1adf35"
             ],
             "index": "pypi",
-            "version": "==6.0.3"
+            "version": "==6.0.4"
         }
     },
     "develop": {
