@@ -199,21 +199,29 @@
             "markers": "python_version >= '3.10'",
             "version": "==67.3.2"
         },
+        "typing-extensions": {
+            "hashes": [
+                "sha256:5cb5f4a79139d699607b3ef622a1dedafa84e115ab0024e0d9c044a9479ca7cb",
+                "sha256:fb33085c39dd998ac16d1431ebc293a8b3eedd00fd4a32de0ff79002c19511b4"
+            ],
+            "markers": "python_version >= '3.7'",
+            "version": "==4.5.0"
+        },
         "urllib3": {
             "hashes": [
                 "sha256:076907bf8fd355cde77728471316625a4d2f7e713c125f51953bb5b3eecf4f72",
                 "sha256:75edcdc2f7d85b137124a6c3c9fc3933cdeaa12ecb9a6a959f22797a0feca7e1"
             ],
-            "markers": "python_version >= '3.6'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4, 3.5'",
             "version": "==1.26.14"
         },
         "wikidata-bot-framework": {
             "hashes": [
-                "sha256:0bc1e09485331f5ba23edfdfc9160da3c8567605ef0b094e257300d2b1ab5eea",
-                "sha256:8baf4f968af5f0dc4972ee32eb73152f90d3847133b351f3467720627b6ac83a"
+                "sha256:3cd559b62988e980c89d968ca67269621cab048cc234dd6a8117d87a35eb81f0",
+                "sha256:ecd79031175f646e4be5518a1c9919243d04928b5d3ca0bc72e33375d7888c9b"
             ],
             "index": "pypi",
-            "version": "==6.2.0"
+            "version": "==7.0.6"
         }
     },
     "develop": {
