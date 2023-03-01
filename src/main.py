@@ -84,8 +84,6 @@ class NPMBot(PropertyAdderBot):
         return item
 
     def make_item_for_package(self, package: str) -> bool:
-        # Temp
-        return False
         if package in self.no_add_cache:
             return False
         r = session.get(npm_download_endpoint.format(package=package))
@@ -184,7 +182,7 @@ class NPMBot(PropertyAdderBot):
                 extra_property.add_qualifier(
                     ExtraQualifier(qual, skip_if_conflicting_exists=True)
                 )
-            elif "beta" in version:
+            elif "beta" in version or "next" in version:
                 qual = pywikibot.Claim(site, version_type)
                 qual.setTarget(pywikibot.ItemPage(site, beta))
                 extra_property.add_qualifier(
@@ -202,7 +200,7 @@ class NPMBot(PropertyAdderBot):
                 extra_property.add_qualifier(
                     ExtraQualifier(qual, skip_if_conflicting_exists=True)
                 )
-            elif "dev" in version:
+            elif "dev" in version or "test" in version or "snapshot" in version or "nightly" in version or "canary" in version:
                 qual = pywikibot.Claim(site, version_type)
                 qual.setTarget(pywikibot.ItemPage(site, unstable))
                 extra_property.add_qualifier(
@@ -238,6 +236,9 @@ class NPMBot(PropertyAdderBot):
                     )
                 )
                 extra_property.add_qualifier(ExtraQualifier(qual))
+        if len(oh.get(software_version_identifier, []) or []) > 300:
+            oh[software_version_identifier].sort(key=lambda property: (property.qualifiers[version_type][0].claim.getTarget().getID() == stable, property.qualifiers[publication_date][0].claim.getTarget().toTimestamp()), reverse=True)
+            oh[software_version_identifier] = oh[software_version_identifier][:300]
 
         claim = pywikibot.Claim(site, instance_of_prop)
         claim.setTarget(pywikibot.ItemPage(site, js_package))
@@ -260,17 +261,6 @@ class NPMBot(PropertyAdderBot):
                 else pywikibot.Timestamp.min
             )
         return super().pre_edit_process_hook(output, item)
-
-    def process(self, output: Output, item: EntityPage) -> bool:
-        if claims := output.get(software_version_identifier, []):
-            if len(claims) > 300:
-                done = False
-                for i in range(0, len(claims), 300):
-                    output[software_version_identifier] = claims[i : i + 300]
-                    done |= super().process(output, item)
-                    item = site.get_entity_for_entity_id(item.id)
-                return done
-        return super().process(output, item)
 
     def run(self):
         while self.queue:
