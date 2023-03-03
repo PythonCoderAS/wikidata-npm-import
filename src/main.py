@@ -294,3 +294,4 @@ class NPMBot(PropertyAdderBot):
                 self.process(self.run_item(item), item)
             except Exception as e:
                 report_exception(e)
+            del item
