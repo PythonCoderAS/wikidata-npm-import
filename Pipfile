@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 wikidata-bot-framework = ">=1.0.2"
+python-dateutil = "*"
 
 [dev-packages]
 black = "*"

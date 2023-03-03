@@ -3,22 +3,20 @@ from collections import deque
 from typing import Any, Optional, Union
 
 import pywikibot
+from dateutil.parser import parse
 from wikidata_bot_framework import (
     EntityPage,
     ExtraProperty,
     ExtraQualifier,
     ExtraReference,
-    NewClaimFromQualifierContext,
     Output,
     OutputHelper,
     ProcessReason,
     PropertyAdderBot,
-    WikidataReference,
-    add_qualifier_locally,
     get_random_hex,
+    report_exception,
     session,
     site,
-    url_prop,
 )
 
 from .constants import *
@@ -170,8 +168,19 @@ class NPMBot(PropertyAdderBot):
             claim.setTarget(version)
             extra_property = self.get_extra_property(package_id, claim)
             qual = pywikibot.Claim(site, publication_date)
+            try:
+                timestamp = pywikibot.Timestamp.strptime(
+                    created_at, "%Y-%m-%dT%H:%M:%S.%fZ"
+                )
+            except ValueError:
+                try:
+                    timestamp = pywikibot.Timestamp.strptime(
+                        created_at, "%Y-%m-%dT%H:%M:%SZ"
+                    )
+                except ValueError:
+                    timestamp = parse(created_at)
             pub_time = pywikibot.WbTime.fromTimestamp(
-                pywikibot.Timestamp.strptime(created_at, "%Y-%m-%dT%H:%M:%S.%fZ"),
+                timestamp,
                 precision=pywikibot.WbTime.PRECISION["day"],
             )
             qual.setTarget(pub_time)
@@ -200,7 +209,13 @@ class NPMBot(PropertyAdderBot):
                 extra_property.add_qualifier(
                     ExtraQualifier(qual, skip_if_conflicting_exists=True)
                 )
-            elif "dev" in version or "test" in version or "snapshot" in version or "nightly" in version or "canary" in version:
+            elif (
+                "dev" in version
+                or "test" in version
+                or "snapshot" in version
+                or "nightly" in version
+                or "canary" in version
+            ):
                 qual = pywikibot.Claim(site, version_type)
                 qual.setTarget(pywikibot.ItemPage(site, unstable))
                 extra_property.add_qualifier(
@@ -237,7 +252,16 @@ class NPMBot(PropertyAdderBot):
                 )
                 extra_property.add_qualifier(ExtraQualifier(qual))
         if len(oh.get(software_version_identifier, []) or []) > 300:
-            oh[software_version_identifier].sort(key=lambda property: (property.qualifiers[version_type][0].claim.getTarget().getID() == stable, property.qualifiers[publication_date][0].claim.getTarget().toTimestamp()), reverse=True)
+            oh[software_version_identifier].sort(
+                key=lambda property: (
+                    property.qualifiers[version_type][0].claim.getTarget().getID()
+                    == stable,
+                    property.qualifiers[publication_date][0]
+                    .claim.getTarget()
+                    .toTimestamp(),
+                ),
+                reverse=True,
+            )
             oh[software_version_identifier] = oh[software_version_identifier][:300]
 
         claim = pywikibot.Claim(site, instance_of_prop)
@@ -266,4 +290,7 @@ class NPMBot(PropertyAdderBot):
         while self.queue:
             item_id = self.queue.popleft()
             item = pywikibot.ItemPage(site, item_id)
-            self.process(self.run_item(item), item)
+            try:
+                self.process(self.run_item(item), item)
+            except Exception as e:
+                report_exception(e)
