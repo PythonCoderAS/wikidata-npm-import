@@ -277,10 +277,18 @@ class NPMBot(PropertyAdderBot):
 
     def pre_edit_process_hook(self, output: Output, item: EntityPage) -> None:
         if software_version_identifier in item.claims:
-            stable_version: pywikibot.Claim = item.claims[software_version_identifier][0]
+            stable_version: pywikibot.Claim = sorted(
+                item.claims[software_version_identifier],
+                key=lambda property: (
+                    property.qualifiers[version_type][0].getTarget().getID() == stable,
+                    property.qualifiers[publication_date][0].getTarget().toTimestamp(),
+                ),
+                reverse=True,
+            )[0]
             stable_version.rank = "preferred"
-            for claim in item.claims[software_version_identifier][1:]:
-                claim.rank = "normal"
+            for claim in item.claims[software_version_identifier]:
+                if claim != stable_version:
+                    claim.rank = "normal"
             item.claims[software_version_identifier].sort(
                 key=lambda claim: claim.qualifiers[publication_date][0]
                 .getTarget()
