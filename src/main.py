@@ -74,7 +74,7 @@ class NPMBot(PropertyAdderBot):
     def make_new_item(self, package: str) -> pywikibot.ItemPage:
         item = pywikibot.ItemPage(site)
         oh = OutputHelper()
-        item.editLabels({"en": package}, summary=self._get_full_summary(item))
+        item.labels["en"] = package
         claim = pywikibot.Claim(site, npm_package_prop)
         claim.setTarget(package)
         oh.add_property(ExtraProperty(claim))
@@ -301,9 +301,9 @@ class NPMBot(PropertyAdderBot):
     def run(self):
         while self.queue:
             item_id = self.queue.popleft()
-            item = pywikibot.ItemPage(site, item_id)
             try:
+                item = pywikibot.ItemPage(site, item_id)
                 self.process(self.run_item(item), item)
+                del item
             except Exception as e:
                 report_exception(e)
-            del item
