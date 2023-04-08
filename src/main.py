@@ -17,6 +17,7 @@ from wikidata_bot_framework import (
     report_exception,
     session,
     site,
+    mark_claim_as_preferred
 )
 
 from .constants import *
@@ -46,6 +47,7 @@ class NPMBot(PropertyAdderBot):
         self.queue: deque[str] = deque(self.npm_db.values())
         self.no_add_cache = set()
         self.editgroup_id = get_random_hex()
+        self.npm_data_cache = None
 
     def get_edit_group_id(self) -> Union[str, None]:
         return self.editgroup_id
@@ -115,6 +117,19 @@ class NPMBot(PropertyAdderBot):
                 extra_ref.add_claim(ref, also_match_property_values=True)
                 claim.add_reference(extra_ref)
         return False
+    
+    def get_timestamp(self, timestamp_str: str) -> pywikibot.Timestamp:
+        try:
+            return pywikibot.Timestamp.strptime(
+                timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+        except ValueError:
+            try:
+                return pywikibot.Timestamp.strptime(
+                    timestamp_str, "%Y-%m-%dT%H:%M:%SZ"
+                )
+            except ValueError:
+                return pywikibot.Timestamp.fromtimestamp(parse(timestamp_str).timestamp())
 
     def run_item(
         self,
@@ -124,7 +139,7 @@ class NPMBot(PropertyAdderBot):
         package_id = self.npm_db.get_key(item.getID())
         r = session.get(npm_endpoint.format(package=package_id))
         r.raise_for_status()
-        data = r.json()
+        data = self.npm_data_cache = r.json()
         current_version = data["dist-tags"]["latest"]
         if "repository" in data and False:  # We skip repo for now
             repo = data["repository"]
@@ -168,17 +183,7 @@ class NPMBot(PropertyAdderBot):
             claim.setTarget(version)
             extra_property = self.get_extra_property(package_id, claim)
             qual = pywikibot.Claim(site, publication_date)
-            try:
-                timestamp = pywikibot.Timestamp.strptime(
-                    created_at, "%Y-%m-%dT%H:%M:%S.%fZ"
-                )
-            except ValueError:
-                try:
-                    timestamp = pywikibot.Timestamp.strptime(
-                        created_at, "%Y-%m-%dT%H:%M:%SZ"
-                    )
-                except ValueError:
-                    timestamp = parse(created_at)
+            timestamp = self.get_timestamp(created_at)
             pub_time = pywikibot.WbTime.fromTimestamp(
                 timestamp,
                 precision=pywikibot.WbTime.PRECISION["day"],
@@ -262,7 +267,11 @@ class NPMBot(PropertyAdderBot):
                 ),
                 reverse=True,
             )
+            latest_version = data["dist-tags"]["latest"]
+            latest_version_claim = next(item for item in oh[software_version_identifier] if item.claim.getTarget() == latest_version)
             oh[software_version_identifier] = oh[software_version_identifier][:300]
+            if latest_version_claim not in oh[software_version_identifier]:
+                oh[software_version_identifier].append(latest_version_claim)
 
         claim = pywikibot.Claim(site, instance_of_prop)
         claim.setTarget(pywikibot.ItemPage(site, js_package))
@@ -274,21 +283,17 @@ class NPMBot(PropertyAdderBot):
         claim.setTarget(pywikibot.ItemPage(site, cross_platform))
         oh.add_property(ExtraProperty(claim, skip_if_conflicting_exists=True))
         return oh
+    
+    def post_output_process_hook(self, output: Output, item: EntityPage) -> bool:
+        if software_version_identifier in item.claims:
+            data = self.npm_data_cache
+            latest_version = data["dist-tags"]["latest"]
+            latest_version_claim = next(item for item in item.claims[software_version_identifier] if item.getTarget() == latest_version)
+            return mark_claim_as_preferred(latest_version_claim, item.claims[software_version_identifier], reason_for_preferred_rank_item=pywikibot.ItemPage(site, most_recent_version))
+        return super().post_output_process_hook(output, item)
 
     def pre_edit_process_hook(self, output: Output, item: EntityPage) -> None:
         if software_version_identifier in item.claims:
-            stable_version: pywikibot.Claim = sorted(
-                item.claims[software_version_identifier],
-                key=lambda property: (
-                    property.qualifiers[version_type][0].getTarget().getID() == stable,
-                    property.qualifiers[publication_date][0].getTarget().toTimestamp(),
-                ),
-                reverse=True,
-            )[0]
-            stable_version.rank = "preferred"
-            for claim in item.claims[software_version_identifier]:
-                if claim != stable_version:
-                    claim.rank = "normal"
             item.claims[software_version_identifier].sort(
                 key=lambda claim: claim.qualifiers[publication_date][0]
                 .getTarget()
