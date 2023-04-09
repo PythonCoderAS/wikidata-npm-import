@@ -239,6 +239,7 @@ class NPMBot(PropertyAdderBot):
             extra_property.add_qualifier(ExtraQualifier(qual))
             if version in existing_versions:
                 for reference_group in existing_versions[version].sources:
+                    found = False
                     if url_prop in reference_group:
                         for reference in reference_group[url_prop]:
                             if "https://github.com" in reference.getTarget():
@@ -248,7 +249,10 @@ class NPMBot(PropertyAdderBot):
                                 ref = pywikibot.Claim(site, based_on_heuristic)
                                 ref.setTarget(pywikibot.ItemPage(site, inferred_from_references))
                                 extra_property.add_reference(ExtraReference(ref))
+                                found = True
                                 break
+                    if found:
+                        break
             qual = pywikibot.Claim(site, described_at_url)
             qual.setTarget(f"https://www.npmjs.com/package/{package_id}/v/{version}")
             extra_property.add_qualifier(ExtraQualifier(qual))
