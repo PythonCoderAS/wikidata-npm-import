@@ -17,6 +17,7 @@ from wikidata_bot_framework import (
     report_exception,
     session,
     site,
+    url_prop,
     mark_claim_as_preferred
 )
 
@@ -178,6 +179,7 @@ class NPMBot(PropertyAdderBot):
         version_times = data["time"]
         del version_times["created"]
         del version_times["modified"]
+        existing_versions: dict[str, pywikibot.Claim] = {claim.getTarget(): claim for claim in item.claims.get(software_version_identifier, [])}
         for version, created_at in version_times.items():
             claim = pywikibot.Claim(site, software_version_identifier)
             claim.setTarget(version)
@@ -235,6 +237,18 @@ class NPMBot(PropertyAdderBot):
             qual = pywikibot.Claim(site, distributed_by)
             qual.setTarget(pywikibot.ItemPage(site, npmjs))
             extra_property.add_qualifier(ExtraQualifier(qual))
+            if version in existing_versions:
+                for reference_group in existing_versions[version].sources:
+                    if url_prop in reference_group:
+                        for reference in reference_group[url_prop]:
+                            if "https://github.com" in reference.getTarget():
+                                qual = pywikibot.Claim(site, distributed_by)
+                                qual.setTarget(pywikibot.ItemPage(site, github_item))
+                                extra_property.add_qualifier(ExtraQualifier(qual))
+                                ref = pywikibot.Claim(site, based_on_heuristic)
+                                ref.setTarget(pywikibot.ItemPage(site, inferred_from_references))
+                                extra_property.add_reference(ExtraReference(ref))
+                                break
             qual = pywikibot.Claim(site, described_at_url)
             qual.setTarget(f"https://www.npmjs.com/package/{package_id}/v/{version}")
             extra_property.add_qualifier(ExtraQualifier(qual))
