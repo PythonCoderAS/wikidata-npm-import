@@ -179,11 +179,11 @@
         },
         "pywikibot": {
             "hashes": [
-                "sha256:2396620e8ebcd46a59a58f1cac652a464b7f1ccbd8f38060a487917a543f78ba",
-                "sha256:b24da72037467d330e437ad91e5724bcf32325edbcc0d5d2cccea89ed5f13cab"
+                "sha256:71ac28bd941f3f9b23d9449d4b165a25d72bc41b02d881253fd795b1e56dfed7",
+                "sha256:b919280ff9079742e01db38b6aabad826d65f5e5cc4d0949899d0b4510128f9d"
             ],
             "markers": "python_full_version >= '3.6.1'",
-            "version": "==8.3.3"
+            "version": "==8.4.0"
         },
         "requests": {
             "hashes": [
@@ -229,8 +229,7 @@
                 "sha256:7a7c7003b000adf9e7ca2a377c9688bbc54ed41b985789ed576570342a375cd2",
                 "sha256:b19e1a85d206b56d7df1d5e683df4a7725252a964e3993648dd0fb5a1c157564"
             ],
-            "index": "pypi",
-            "markers": "python_version >= '3.7'",
+            "markers": "python_version >= '3.6'",
             "version": "==2.0.6"
         },
         "wikidata-bot-framework": {
