@@ -18,10 +18,48 @@ from wikidata_bot_framework import (
     session,
     site,
     url_prop,
-    mark_claim_as_preferred
+    mark_claim_as_preferred,
 )
 
-from .constants import *
+from .constants import (
+    alpha,
+    beta,
+    based_on_heuristic,
+    byte,
+    cross_platform,
+    data_size,
+    dependency_prop,
+    distributed_by,
+    described_at_url,
+    download_link,
+    github_item,
+    inferred_from_references,
+    inferred_from_version,
+    instance_of_prop,
+    js,
+    js_package,
+    most_recent_version,
+    npm_download_endpoint,
+    npm_endpoint,
+    npm_item,
+    npm_package_prop,
+    npmjs,
+    operating_system,
+    pre,
+    programmed_in_prop,
+    publication_date,
+    rc,
+    source_code_repo,
+    stated_in_prop,
+    stable,
+    unstable,
+    version_type,
+    software_version_identifier,
+    reference_url_prop,
+    valid_repo_git_url_regex,
+    valid_repo_github_regex,
+    valid_repo_url_regex,
+)
 from .inversedict import InverseDict
 
 
@@ -118,19 +156,17 @@ class NPMBot(PropertyAdderBot):
                 extra_ref.add_claim(ref, also_match_property_values=True)
                 claim.add_reference(extra_ref)
         return False
-    
+
     def get_timestamp(self, timestamp_str: str) -> pywikibot.Timestamp:
         try:
-            return pywikibot.Timestamp.strptime(
-                timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ"
-            )
+            return pywikibot.Timestamp.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ")
         except ValueError:
             try:
-                return pywikibot.Timestamp.strptime(
-                    timestamp_str, "%Y-%m-%dT%H:%M:%SZ"
-                )
+                return pywikibot.Timestamp.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%SZ")
             except ValueError:
-                return pywikibot.Timestamp.fromtimestamp(parse(timestamp_str).timestamp())
+                return pywikibot.Timestamp.fromtimestamp(
+                    parse(timestamp_str).timestamp()
+                )
 
     def run_item(
         self,
@@ -179,7 +215,10 @@ class NPMBot(PropertyAdderBot):
         version_times = data["time"]
         del version_times["created"]
         del version_times["modified"]
-        existing_versions: dict[str, pywikibot.Claim] = {claim.getTarget(): claim for claim in item.claims.get(software_version_identifier, [])}
+        existing_versions: dict[str, pywikibot.Claim] = {
+            claim.getTarget(): claim
+            for claim in item.claims.get(software_version_identifier, [])
+        }
         for version, created_at in version_times.items():
             claim = pywikibot.Claim(site, software_version_identifier)
             claim.setTarget(version)
@@ -247,7 +286,9 @@ class NPMBot(PropertyAdderBot):
                                 qual.setTarget(pywikibot.ItemPage(site, github_item))
                                 extra_property.add_qualifier(ExtraQualifier(qual))
                                 ref = pywikibot.Claim(site, based_on_heuristic)
-                                ref.setTarget(pywikibot.ItemPage(site, inferred_from_references))
+                                ref.setTarget(
+                                    pywikibot.ItemPage(site, inferred_from_references)
+                                )
                                 extra_property.add_reference(ExtraReference(ref))
                                 found = True
                                 break
@@ -286,7 +327,11 @@ class NPMBot(PropertyAdderBot):
                 reverse=True,
             )
             latest_version = data["dist-tags"]["latest"]
-            latest_version_claim = next(item for item in oh[software_version_identifier] if item.claim.getTarget() == latest_version)
+            latest_version_claim = next(
+                item
+                for item in oh[software_version_identifier]
+                if item.claim.getTarget() == latest_version
+            )
             oh[software_version_identifier] = oh[software_version_identifier][:300]
             if latest_version_claim not in oh[software_version_identifier]:
                 oh[software_version_identifier].append(latest_version_claim)
@@ -301,13 +346,23 @@ class NPMBot(PropertyAdderBot):
         claim.setTarget(pywikibot.ItemPage(site, cross_platform))
         oh.add_property(ExtraProperty(claim, skip_if_conflicting_exists=True))
         return oh
-    
+
     def post_output_process_hook(self, output: Output, item: EntityPage) -> bool:
         if software_version_identifier in item.claims:
             data = self.npm_data_cache
             latest_version = data["dist-tags"]["latest"]
-            latest_version_claim = next(item for item in item.claims[software_version_identifier] if item.getTarget() == latest_version)
-            return mark_claim_as_preferred(latest_version_claim, item.claims[software_version_identifier], reason_for_preferred_rank_item=pywikibot.ItemPage(site, most_recent_version))
+            latest_version_claim = next(
+                item
+                for item in item.claims[software_version_identifier]
+                if item.getTarget() == latest_version
+            )
+            return mark_claim_as_preferred(
+                latest_version_claim,
+                item.claims[software_version_identifier],
+                reason_for_preferred_rank_item=pywikibot.ItemPage(
+                    site, most_recent_version
+                ),
+            )
         return super().post_output_process_hook(output, item)
 
     def pre_edit_process_hook(self, output: Output, item: EntityPage) -> None:
