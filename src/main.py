@@ -289,7 +289,7 @@ class NPMBot(PropertyAdderBot):
                                 ref.setTarget(
                                     pywikibot.ItemPage(site, inferred_from_references)
                                 )
-                                extra_property.add_reference(ExtraReference(ref))
+                                extra_property.add_reference(ExtraReference.from_reference_claim(ref, also_match_property_values=True))
                                 found = True
                                 break
                     if found:
@@ -381,7 +381,7 @@ class NPMBot(PropertyAdderBot):
             item_id = self.queue.popleft()
             try:
                 item = pywikibot.ItemPage(site, item_id)
-                self.process(self.run_item(item), item)
+                self.act_on_item(item)
                 del item
             except Exception as e:
                 report_exception(e)
